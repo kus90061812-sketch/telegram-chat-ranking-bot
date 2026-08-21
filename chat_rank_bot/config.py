@@ -76,7 +76,7 @@ class Settings:
             bot_token=bot_token,
             database_url=database_url,
             timezone=timezone,
-            min_text_length=_as_int("MIN_TEXT_LENGTH", 2, 1),
+            min_text_length=_as_int("MIN_TEXT_LENGTH", 5, 1),
             min_message_interval_seconds=_as_int(
                 "MIN_MESSAGE_INTERVAL_SECONDS", 3, 0
             ),

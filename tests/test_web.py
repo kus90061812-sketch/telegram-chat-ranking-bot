@@ -63,6 +63,7 @@ class WebAdminTests(unittest.TestCase):
             edit_html = response.read().decode("utf-8")
         self.assertIn("봇 답변 전체 편집", edit_html)
         self.assertIn("name=\"ranking_template\"", edit_html)
+        self.assertIn(".filter(Boolean).join('\\n')", edit_html)
 
     def test_save_changes_updates_database(self) -> None:
         payload = urlencode(

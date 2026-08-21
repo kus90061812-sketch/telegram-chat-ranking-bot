@@ -8,6 +8,7 @@ import unicodedata
 MEANINGFUL_CHARACTER = re.compile(
     r"[0-9A-Za-z가-힣ㄱ-ㅎㅏ-ㅣ\u1100-\u11ff\ua960-\ua97f\ud7b0-\ud7ff]"
 )
+COMPLETE_CHARACTER = re.compile(r"[0-9A-Za-z가-힣]")
 WHITESPACE = re.compile(r"\s+")
 
 
@@ -23,7 +24,10 @@ def is_countable_text(text: str | None, min_length: int) -> bool:
     compact = normalized.replace(" ", "")
     if len(compact) < min_length:
         return False
-    return MEANINGFUL_CHARACTER.search(compact) is not None
+    return (
+        MEANINGFUL_CHARACTER.search(compact) is not None
+        and COMPLETE_CHARACTER.search(compact) is not None
+    )
 
 
 def fingerprint(text: str) -> str:

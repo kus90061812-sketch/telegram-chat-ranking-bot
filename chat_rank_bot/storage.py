@@ -19,7 +19,7 @@ DEFAULT_RANKING_TEMPLATE = """🏆 {EVENT_TITLE_BOLD}
 
 {FOOTER}"""
 
-DEFAULT_PERSONAL_TEMPLATE = """📊 {NAME_BOLD}님의 채팅 기록
+LEGACY_DEFAULT_PERSONAL_TEMPLATE = """📊 {NAME_BOLD}님의 채팅 기록
 
 ☀️ 오늘: {DAILY_SUMMARY}
 📅 이번 주: {WEEKLY_SUMMARY}
@@ -31,6 +31,21 @@ DEFAULT_PERSONAL_TEMPLATE = """📊 {NAME_BOLD}님의 채팅 기록
 오늘: {DAY_DATE}
 주간: {WEEK_DATE}"""
 
+DEFAULT_PERSONAL_TEMPLATE = """🪶 **내 채팅 기록**
+
+📅 오늘: **{DAILY_COUNT}회**
+📆 이번 주: **{WEEKLY_COUNT}회**
+
+5글자 이상 집계 / 초성 집계 X
+
+**▪ 매주 월요일 시상진행**
+{PRIZE_TABLE}
+
+**▪▪▪▪▪▪ 포인트로 지급**
+**🖥 5글자 이상만 집계됩니다**
+**▪▪▪▪▪▪▪**
+**일정인원 달성시 일일 이벤트 전환예정**"""
+
 DEFAULT_HELP_TEMPLATE = """💬 {EVENT_TITLE_BOLD}
 
 .채팅순위 — 오늘·이번 주 TOP 순위
@@ -39,7 +54,8 @@ DEFAULT_HELP_TEMPLATE = """💬 {EVENT_TITLE_BOLD}
 {HELP_MESSAGE}"""
 
 DEFAULT_RANKING_ROW_TEMPLATE = "{MEDAL} {NAME_BOLD} — {COUNT}회"
-DEFAULT_PRIZE_LINE_TEMPLATE = "🎁 {PRIZES}"
+LEGACY_DEFAULT_PRIZE_LINE_TEMPLATE = "🎁 {PRIZES}"
+DEFAULT_PRIZE_LINE_TEMPLATE = "{PRIZES}"
 DEFAULT_EMPTY_RANKING_MESSAGE = "아직 집계된 채팅이 없어요."
 
 
@@ -343,6 +359,16 @@ class Storage:
         defaults = ChatSettings(chat_id=chat_id)
         if not row and not template_row:
             return defaults
+        personal_template = (
+            str(template_row[1]) if template_row else defaults.personal_template
+        )
+        if personal_template == LEGACY_DEFAULT_PERSONAL_TEMPLATE:
+            personal_template = defaults.personal_template
+        prize_line_template = (
+            str(template_row[4]) if template_row else defaults.prize_line_template
+        )
+        if prize_line_template == LEGACY_DEFAULT_PRIZE_LINE_TEMPLATE:
+            prize_line_template = defaults.prize_line_template
         return ChatSettings(
             chat_id=chat_id,
             event_title=str(row[0]) if row else defaults.event_title,
@@ -356,10 +382,10 @@ class Storage:
             help_message=str(row[8]) if row else defaults.help_message,
             top_limit=int(row[9]) if row else defaults.top_limit,
             ranking_template=str(template_row[0]) if template_row else defaults.ranking_template,
-            personal_template=str(template_row[1]) if template_row else defaults.personal_template,
+            personal_template=personal_template,
             help_template=str(template_row[2]) if template_row else defaults.help_template,
             ranking_row_template=str(template_row[3]) if template_row else defaults.ranking_row_template,
-            prize_line_template=str(template_row[4]) if template_row else defaults.prize_line_template,
+            prize_line_template=prize_line_template,
             empty_ranking_message=str(template_row[5]) if template_row else defaults.empty_ranking_message,
         )
 

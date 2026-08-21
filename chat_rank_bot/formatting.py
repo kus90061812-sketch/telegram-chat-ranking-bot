@@ -8,6 +8,7 @@ from .storage import ChatSettings, PersonalRank, RankEntry
 
 
 MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
+PRIZE_MARKERS = {1: "🥇", 2: "🥈", 3: "🥉", 4: "▪"}
 EXTRA_BLANK_LINES = re.compile(r"\n{3,}")
 SIMPLE_BOLD = re.compile(r"\*\*([^*\n]+)\*\*")
 
@@ -53,14 +54,21 @@ def ranking_lines(
     return "\n".join(lines)
 
 
-def _prize_line(settings: ChatSettings) -> str:
+def _prize_table(settings: ChatSettings) -> str:
     prize_items = settings.prize_items()
     if not prize_items:
         return ""
-    prizes = " · ".join(
-        f"{rank}위 {escape(prize)}" for rank, prize in prize_items
+    return "\n".join(
+        f"<b>{PRIZE_MARKERS[rank]}{rank}등 : {escape(prize)}</b>"
+        for rank, prize in prize_items
     )
-    return render_template(settings.prize_line_template, {"PRIZES": prizes})
+
+
+def _prize_line(settings: ChatSettings) -> str:
+    prize_table = _prize_table(settings)
+    if not prize_table:
+        return ""
+    return render_template(settings.prize_line_template, {"PRIZES": prize_table})
 
 
 def ranking_message(
@@ -135,6 +143,8 @@ def personal_message(
             "WEEKLY_GAP": _gap_text(weekly),
             "PRIZE": prize,
             "PRIZE_BOLD": f"<b>{prize}</b>",
+            "PRIZE_TABLE": _prize_table(settings),
+            "PRIZE_LINE": _prize_line(settings),
             "DAY_DATE": day_label(day_key),
             "WEEK_DATE": week_label(week_key),
         },
