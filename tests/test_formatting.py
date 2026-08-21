@@ -17,16 +17,16 @@ class FormattingTests(unittest.TestCase):
         ]
         result = daily_ranking_message(entries, "2026-08-22")
         self.assertIn("📅 <b>일일집계</b>", result)
-        self.assertIn("1위 - 기강 &amp; 친구 [ 1,284회 ]", result)
-        self.assertIn("2위 - 라온 [ 900회 ]", result)
+        self.assertIn("1위 - 기강 &amp; 친구 (@test) [ 1,284회 ]", result)
+        self.assertIn("2위 - 라온 (아이디 없음) [ 900회 ]", result)
         self.assertIn("3위 - 집계 없음 [ 0회 ]", result)
         self.assertIn("4위 - 집계 없음 [ 0회 ]", result)
 
     def test_weekly_ranking_contains_fixed_prizes_and_contacts(self) -> None:
-        entries = [RankEntry(1, "기강", None, 321)]
+        entries = [RankEntry(1, "기강", "TB935", 321)]
         result = weekly_ranking_message(entries, "2026-08-17")
         self.assertIn("📆 <b>주간집계</b>", result)
-        self.assertIn("1위 10만 - 기강 [ 321회 ]", result)
+        self.assertIn("1위 10만 - 기강 (@TB935) [ 321회 ]", result)
         self.assertIn("2위 5만 - 집계 없음 [ 0회 ]", result)
         self.assertIn("3위 3만 - 집계 없음 [ 0회 ]", result)
         self.assertIn("4위 2만 - 집계 없음 [ 0회 ]", result)

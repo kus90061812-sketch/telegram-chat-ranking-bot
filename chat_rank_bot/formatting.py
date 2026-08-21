@@ -11,11 +11,15 @@ TOP_LIMIT = 4
 EMPTY_NAME = "집계 없음"
 
 
-def _safe_name(entry: RankEntry) -> str:
-    return escape(
+def _display_identity(entry: RankEntry) -> str:
+    name = escape(
         entry.display_name
         or (f"@{entry.username}" if entry.username else str(entry.user_id))
     )
+    if not entry.username:
+        return f"{name} (아이디 없음)"
+    username = escape(entry.username.lstrip("@"))
+    return f"{name} (@{username})"
 
 
 def _ranking_rows(entries: list[RankEntry], *, show_prizes: bool) -> str:
@@ -23,7 +27,7 @@ def _ranking_rows(entries: list[RankEntry], *, show_prizes: bool) -> str:
     for position in range(1, TOP_LIMIT + 1):
         if position <= len(entries):
             entry = entries[position - 1]
-            name = _safe_name(entry)
+            name = _display_identity(entry)
             count = f"{entry.count:,}회"
         else:
             name = EMPTY_NAME

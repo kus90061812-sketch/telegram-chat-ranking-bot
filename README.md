@@ -9,6 +9,24 @@
 - `.나` — 내 일일·주간 채팅 수와 현재 등수
 - `.도움말` — 명령어 안내
 
+## 주간 순위 자동 전송
+
+- `WEEKLY_BROADCAST_INTERVAL_HOURS`에 설정한 시간 간격마다 등록된 모든
+  소통방에 주간 순위를 자동 전송합니다.
+- `1`은 1시간마다, `2`는 2시간마다, `3`은 3시간마다 전송합니다.
+- 변수를 추가하지 않거나 비워두면 기본값은 1시간입니다.
+- 봇이 시작되거나 재시작된 시점부터 설정한 시간이 지난 뒤 첫 자동
+  전송이 실행됩니다.
+- 봇 배포 후 각 소통방에서 채팅이나 명령어를 한 번 보내면 자동 전송 대상에 등록됩니다.
+- Railway가 재시작되어도 PostgreSQL에 저장된 소통방 목록을 다시 불러옵니다.
+
+Railway의 봇 서비스에서 **Variables**를 열고 원하는 시간을 설정한 뒤
+재배포하면 됩니다.
+
+```text
+WEEKLY_BROADCAST_INTERVAL_HOURS=2
+```
+
 ## 출력 형식
 
 ### `.일일순위`
@@ -16,10 +34,10 @@
 ```text
 📅 일일집계
 
-1위 - 닉네임 [ 120회 ]
-2위 - 닉네임 [ 90회 ]
-3위 - 닉네임 [ 70회 ]
-4위 - 닉네임 [ 50회 ]
+1위 - 닉네임 (@아이디) [ 120회 ]
+2위 - 닉네임 (@아이디) [ 90회 ]
+3위 - 닉네임 (@아이디) [ 70회 ]
+4위 - 닉네임 (@아이디) [ 50회 ]
 
 매일 00시 새로 집계
 ```
@@ -29,10 +47,10 @@
 ```text
 📆 주간집계
 
-1위 10만 - 닉네임 [ 500회 ]
-2위 5만 - 닉네임 [ 400회 ]
-3위 3만 - 닉네임 [ 300회 ]
-4위 2만 - 닉네임 [ 200회 ]
+1위 10만 - 닉네임 (@아이디) [ 500회 ]
+2위 5만 - 닉네임 (@아이디) [ 400회 ]
+3위 3만 - 닉네임 (@아이디) [ 300회 ]
+4위 2만 - 닉네임 (@아이디) [ 200회 ]
 
 매주 월요일 포인트지급
 문의 : @TB935 , @tigertk52
@@ -40,6 +58,7 @@
 
 참여자가 4명보다 적어도 1~4위 줄은 항상 표시되며 빈 등수는
 `집계 없음 [ 0회 ]`로 나옵니다.
+텔레그램 아이디를 설정하지 않은 회원은 `(아이디 없음)`으로 표시됩니다.
 
 ## 집계 규칙
 
@@ -78,11 +97,13 @@ Privacy Mode를 끄지 않으면 일반 채팅을 받을 수 없어 집계되지
 2. Railway에서 저장소를 연결해 서비스를 만듭니다.
 3. PostgreSQL 서비스를 추가하고 봇 서비스에 연결합니다.
 4. 봇 서비스의 Variables에 `BOT_TOKEN`을 추가합니다.
-5. 필요하면 `EXCLUDED_USER_IDS`도 추가합니다.
+5. 필요하면 `EXCLUDED_USER_IDS`, `WEEKLY_BROADCAST_INTERVAL_HOURS`도 추가합니다.
 6. 배포 후 로그에서 `Bot started as`가 뜨는지 확인합니다.
 
-웹 기능이 없으므로 `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `PORT`는 필요하지
-않고 Public Domain도 삭제해도 됩니다. Railway 시작 명령어가 자동으로
+관리 웹은 없으며 Railway Healthcheck용으로 모든 경로에서 `OK`만 반환합니다.
+기존 Healthcheck Path와 Public Domain이 남아 있어도 배포할 수 있습니다.
+`ADMIN_USERNAME`, `ADMIN_PASSWORD`는 필요하지 않습니다. `PORT`는 Railway가
+자동으로 넣으므로 직접 설정할 필요가 없습니다. 시작 명령어가 자동으로
 잡히지 않으면 서비스의 **Custom Start Command**에 아래 값을 넣습니다.
 
 ```text
@@ -97,6 +118,7 @@ python -m chat_rank_bot
 | `DATABASE_URL` | `sqlite:///data/chat_rank.db` | Railway PostgreSQL 또는 SQLite 주소 |
 | `TIMEZONE` | `Asia/Seoul` | 집계 시간대 |
 | `EXCLUDED_USER_IDS` | 빈 값 | 집계하지 않을 사용자 고유번호 |
+| `WEEKLY_BROADCAST_INTERVAL_HOURS` | `1` | 주간 순위 자동 전송 간격(시간) |
 | `MIN_TEXT_LENGTH` | `5` | 최소 글자 수 |
 | `MIN_MESSAGE_INTERVAL_SECONDS` | `3` | 연속 채팅 제외 시간 |
 | `DUPLICATE_WINDOW_SECONDS` | `60` | 같은 내용 반복 제외 시간 |

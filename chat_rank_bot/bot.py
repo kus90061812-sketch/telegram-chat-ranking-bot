@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+from contextlib import suppress
 from datetime import datetime, timezone
 
 from telegram import Update
@@ -21,6 +23,7 @@ from .formatting import (
     personal_message,
     weekly_ranking_message,
 )
+from .health import start_health_server
 from .periods import period_keys
 from .storage import Storage
 from .text_rules import dot_command, fingerprint, is_countable_text
@@ -30,6 +33,8 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     level=logging.INFO,
 )
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 LOGGER = logging.getLogger(__name__)
 
 DAILY_COMMANDS = {".일일순위"}
@@ -42,14 +47,31 @@ class RankingBot:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.storage = Storage(settings.database_url)
+        self.registered_chats: set[int] = set()
+        self.broadcast_task: asyncio.Task[None] | None = None
 
     async def post_init(self, application: Application) -> None:
         if self.storage.connection is None:
             await asyncio.to_thread(self.storage.initialize)
+        self.registered_chats.update(
+            await asyncio.to_thread(self.storage.list_chat_ids)
+        )
         me = await application.bot.get_me()
         LOGGER.info("Bot started as @%s", me.username)
+        LOGGER.info(
+            "Weekly ranking auto-send interval: every %s hour(s)",
+            self.settings.weekly_broadcast_interval_hours,
+        )
+        self.broadcast_task = asyncio.create_task(
+            self.scheduled_weekly_broadcast(application),
+            name="scheduled-weekly-ranking",
+        )
 
     async def post_shutdown(self, application: Application) -> None:
+        if self.broadcast_task:
+            self.broadcast_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self.broadcast_task
         await asyncio.to_thread(self.storage.close)
 
     async def error_handler(
@@ -69,6 +91,15 @@ class RankingBot:
             if message.text and message.text.startswith("."):
                 await message.reply_text("이 명령어는 소통방 그룹에서 사용해주세요.")
             return
+
+        if chat.id not in self.registered_chats:
+            await asyncio.to_thread(
+                self.storage.register_chat,
+                chat.id,
+                chat.title or str(chat.id),
+                datetime.now(timezone.utc),
+            )
+            self.registered_chats.add(chat.id)
 
         command = dot_command(message.text or "")
         if command in DAILY_COMMANDS:
@@ -170,6 +201,34 @@ class RankingBot:
             parse_mode=ParseMode.HTML,
         )
 
+    async def scheduled_weekly_broadcast(self, application: Application) -> None:
+        interval_seconds = self.settings.weekly_broadcast_interval_hours * 60 * 60
+        while True:
+            await asyncio.sleep(interval_seconds)
+            await self.broadcast_weekly(application)
+
+    async def broadcast_weekly(self, application: Application) -> None:
+        keys = period_keys(datetime.now(timezone.utc), self.settings.timezone)
+        chat_ids = await asyncio.to_thread(self.storage.list_chat_ids)
+        for chat_id in chat_ids:
+            try:
+                entries = await asyncio.to_thread(
+                    self.storage.rankings,
+                    chat_id,
+                    "week",
+                    keys.week_key,
+                )
+                await application.bot.send_message(
+                    chat_id=chat_id,
+                    text=weekly_ranking_message(entries, keys.week_key),
+                    parse_mode=ParseMode.HTML,
+                )
+            except Exception:
+                LOGGER.exception(
+                    "Failed to send scheduled weekly ranking to chat %s",
+                    chat_id,
+                )
+
 
 def build_application(
     settings: Settings, ranking_bot: RankingBot | None = None
@@ -192,7 +251,12 @@ def run() -> None:
     ranking_bot = RankingBot(settings)
     ranking_bot.storage.initialize()
     application = build_application(settings, ranking_bot)
-    application.run_polling(
-        allowed_updates=Update.ALL_TYPES,
-        drop_pending_updates=False,
-    )
+    health_server = start_health_server(int(os.getenv("PORT", "8000")))
+    try:
+        application.run_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=False,
+        )
+    finally:
+        health_server.shutdown()
+        health_server.server_close()

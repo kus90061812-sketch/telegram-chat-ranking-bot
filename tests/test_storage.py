@@ -69,3 +69,10 @@ class StorageTests(unittest.TestCase):
         )
         self.assertEqual([entry.user_id for entry in self.storage.rankings(-100, "day", "2026-08-22")], [1])
         self.assertEqual([entry.user_id for entry in self.storage.rankings(-200, "day", "2026-08-22")], [2])
+
+    def test_registered_chats_are_available_for_automatic_broadcast(self) -> None:
+        now = datetime(2026, 8, 22, tzinfo=timezone.utc)
+        self.storage.register_chat(-200, "두 번째 방", now)
+        self.storage.register_chat(-100, "첫 번째 방", now)
+        self.storage.register_chat(-100, "수정된 첫 번째 방", now)
+        self.assertEqual(self.storage.list_chat_ids(), [-200, -100])

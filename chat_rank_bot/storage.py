@@ -92,6 +92,13 @@ class Storage:
                     CONSTRAINT uq_message_chat_id UNIQUE (chat_id, message_id)
                 )
                 """,
+                """
+                CREATE TABLE IF NOT EXISTS chat_groups (
+                    chat_id BIGINT PRIMARY KEY,
+                    title VARCHAR(255) NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """,
                 "CREATE INDEX IF NOT EXISTS ix_events_chat_day_user "
                 "ON message_events (chat_id, day_key, user_id)",
                 "CREATE INDEX IF NOT EXISTS ix_events_chat_week_user "
@@ -166,6 +173,44 @@ class Storage:
                 raise
             finally:
                 cursor.close()
+
+    def register_chat(self, chat_id: int, title: str, updated_at: datetime) -> None:
+        statement = self._sql(
+            """
+            INSERT INTO chat_groups (chat_id, title, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT (chat_id) DO UPDATE SET
+                title = EXCLUDED.title,
+                updated_at = EXCLUDED.updated_at
+            """
+        )
+        values = (
+            chat_id,
+            (title or str(chat_id))[:255],
+            self._datetime_value(updated_at),
+        )
+        with self.lock:
+            connection = self._require_connection()
+            cursor = connection.cursor()
+            try:
+                cursor.execute(statement, values)
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                cursor.close()
+
+    def list_chat_ids(self) -> list[int]:
+        statement = "SELECT chat_id FROM chat_groups ORDER BY chat_id"
+        with self.lock:
+            cursor = self._require_connection().cursor()
+            try:
+                cursor.execute(statement)
+                rows = cursor.fetchall()
+            finally:
+                cursor.close()
+        return [int(row[0]) for row in rows]
 
     def add_message(
         self,

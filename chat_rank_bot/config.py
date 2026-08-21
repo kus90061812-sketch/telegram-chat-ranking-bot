@@ -41,6 +41,20 @@ def _excluded_user_ids(value: str | None) -> frozenset[int]:
         ) from exc
 
 
+def _broadcast_interval_hours(value: str | None) -> int:
+    if value is None or not value.strip():
+        return 1
+    try:
+        hours = int(value)
+    except ValueError as exc:
+        raise ValueError(
+            "WEEKLY_BROADCAST_INTERVAL_HOURS must be an integer"
+        ) from exc
+    if hours < 1:
+        raise ValueError("WEEKLY_BROADCAST_INTERVAL_HOURS must be at least 1")
+    return hours
+
+
 @dataclass(frozen=True)
 class Settings:
     bot_token: str
@@ -50,6 +64,7 @@ class Settings:
     min_message_interval_seconds: int
     duplicate_window_seconds: int
     excluded_user_ids: frozenset[int]
+    weekly_broadcast_interval_hours: int
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -86,4 +101,7 @@ class Settings:
             ),
             duplicate_window_seconds=_as_int("DUPLICATE_WINDOW_SECONDS", 60, 0),
             excluded_user_ids=_excluded_user_ids(os.getenv("EXCLUDED_USER_IDS")),
+            weekly_broadcast_interval_hours=_broadcast_interval_hours(
+                os.getenv("WEEKLY_BROADCAST_INTERVAL_HOURS")
+            ),
         )
