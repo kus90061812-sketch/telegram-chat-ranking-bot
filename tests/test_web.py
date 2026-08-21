@@ -55,6 +55,15 @@ class WebAdminTests(unittest.TestCase):
         self.assertIn("AXIS 소통방", html)
         self.assertIn("/admin/chat/-100", html)
 
+        edit_request = Request(
+            f"{self.base_url}/admin/chat/-100",
+            headers={"Authorization": self.auth_header},
+        )
+        with urlopen(edit_request, timeout=2) as response:
+            edit_html = response.read().decode("utf-8")
+        self.assertIn("봇 답변 전체 편집", edit_html)
+        self.assertIn("name=\"ranking_template\"", edit_html)
+
     def test_save_changes_updates_database(self) -> None:
         payload = urlencode(
             {
@@ -68,6 +77,12 @@ class WebAdminTests(unittest.TestCase):
                 "footer": "월요일 발표",
                 "help_message": "도배 금지",
                 "top_limit": "8",
+                "ranking_template": "순위 전체 {WEEKLY_RANKING}",
+                "personal_template": "내 기록 {WEEKLY_COUNT}",
+                "help_template": "도움 {HELP_MESSAGE}",
+                "ranking_row_template": "{POSITION}위 {NAME} {COUNT}",
+                "prize_line_template": "상금 {PRIZES}",
+                "empty_ranking_message": "아직 없음",
             }
         ).encode("utf-8")
         request = Request(
@@ -86,4 +101,5 @@ class WebAdminTests(unittest.TestCase):
         self.assertEqual(saved.event_title, "AXIS 채팅왕")
         self.assertEqual(saved.prize_1, "30만원")
         self.assertEqual(saved.top_limit, 8)
-
+        self.assertEqual(saved.ranking_template, "순위 전체 {WEEKLY_RANKING}")
+        self.assertEqual(saved.personal_template, "내 기록 {WEEKLY_COUNT}")

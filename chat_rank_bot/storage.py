@@ -8,6 +8,41 @@ from pathlib import Path
 from typing import Any
 
 
+DEFAULT_RANKING_TEMPLATE = """🏆 {EVENT_TITLE_BOLD}
+
+☀️ {DAILY_TITLE_BOLD} · {DAY_DATE}
+{DAILY_RANKING}
+
+📅 {WEEKLY_TITLE_BOLD} · {WEEK_DATE}
+{PRIZE_LINE}
+{WEEKLY_RANKING}
+
+{FOOTER}"""
+
+DEFAULT_PERSONAL_TEMPLATE = """📊 {NAME_BOLD}님의 채팅 기록
+
+☀️ 오늘: {DAILY_SUMMARY}
+📅 이번 주: {WEEKLY_SUMMARY}
+
+오늘 1위까지: {DAILY_GAP}
+주간 1위까지: {WEEKLY_GAP}
+🎁 현재 주간 예상 상금: {PRIZE_BOLD}
+
+오늘: {DAY_DATE}
+주간: {WEEK_DATE}"""
+
+DEFAULT_HELP_TEMPLATE = """💬 {EVENT_TITLE_BOLD}
+
+.채팅순위 — 오늘·이번 주 TOP 순위
+.나 — 내 일간·주간 채팅 수와 순위
+
+{HELP_MESSAGE}"""
+
+DEFAULT_RANKING_ROW_TEMPLATE = "{MEDAL} {NAME_BOLD} — {COUNT}회"
+DEFAULT_PRIZE_LINE_TEMPLATE = "🎁 {PRIZES}"
+DEFAULT_EMPTY_RANKING_MESSAGE = "아직 집계된 채팅이 없어요."
+
+
 @dataclass(frozen=True)
 class RankEntry:
     user_id: int
@@ -46,6 +81,12 @@ class ChatSettings:
     footer: str = "한국시간 기준 · 도배성 메시지는 집계되지 않습니다."
     help_message: str = "일간은 매일 00시, 주간은 매주 월요일 00시부터 새로 집계됩니다."
     top_limit: int = 10
+    ranking_template: str = DEFAULT_RANKING_TEMPLATE
+    personal_template: str = DEFAULT_PERSONAL_TEMPLATE
+    help_template: str = DEFAULT_HELP_TEMPLATE
+    ranking_row_template: str = DEFAULT_RANKING_ROW_TEMPLATE
+    prize_line_template: str = DEFAULT_PRIZE_LINE_TEMPLATE
+    empty_ranking_message: str = DEFAULT_EMPTY_RANKING_MESSAGE
 
     def prize_for_rank(self, rank: int | None) -> str | None:
         if rank is None:
@@ -149,6 +190,18 @@ class Storage:
                     footer VARCHAR(1000) NOT NULL,
                     help_message VARCHAR(2000) NOT NULL,
                     top_limit INTEGER NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS chat_message_templates (
+                    chat_id BIGINT PRIMARY KEY,
+                    ranking_template TEXT NOT NULL,
+                    personal_template TEXT NOT NULL,
+                    help_template TEXT NOT NULL,
+                    ranking_row_template TEXT NOT NULL,
+                    prize_line_template TEXT NOT NULL,
+                    empty_ranking_message VARCHAR(500) NOT NULL,
                     updated_at TEXT NOT NULL
                 )
                 """,
@@ -261,7 +314,7 @@ class Storage:
         return [ChatGroup(chat_id=int(row[0]), title=str(row[1])) for row in rows]
 
     def get_chat_settings(self, chat_id: int) -> ChatSettings:
-        statement = self._sql(
+        settings_statement = self._sql(
             """
             SELECT event_title, daily_title, weekly_title,
                    prize_1, prize_2, prize_3, prize_4,
@@ -270,31 +323,48 @@ class Storage:
             WHERE chat_id = ?
             """
         )
+        templates_statement = self._sql(
+            """
+            SELECT ranking_template, personal_template, help_template,
+                   ranking_row_template, prize_line_template, empty_ranking_message
+            FROM chat_message_templates
+            WHERE chat_id = ?
+            """
+        )
         with self.lock:
             cursor = self._require_connection().cursor()
             try:
-                cursor.execute(statement, (chat_id,))
+                cursor.execute(settings_statement, (chat_id,))
                 row = cursor.fetchone()
+                cursor.execute(templates_statement, (chat_id,))
+                template_row = cursor.fetchone()
             finally:
                 cursor.close()
-        if not row:
-            return ChatSettings(chat_id=chat_id)
+        defaults = ChatSettings(chat_id=chat_id)
+        if not row and not template_row:
+            return defaults
         return ChatSettings(
             chat_id=chat_id,
-            event_title=str(row[0]),
-            daily_title=str(row[1]),
-            weekly_title=str(row[2]),
-            prize_1=str(row[3]),
-            prize_2=str(row[4]),
-            prize_3=str(row[5]),
-            prize_4=str(row[6]),
-            footer=str(row[7]),
-            help_message=str(row[8]),
-            top_limit=int(row[9]),
+            event_title=str(row[0]) if row else defaults.event_title,
+            daily_title=str(row[1]) if row else defaults.daily_title,
+            weekly_title=str(row[2]) if row else defaults.weekly_title,
+            prize_1=str(row[3]) if row else defaults.prize_1,
+            prize_2=str(row[4]) if row else defaults.prize_2,
+            prize_3=str(row[5]) if row else defaults.prize_3,
+            prize_4=str(row[6]) if row else defaults.prize_4,
+            footer=str(row[7]) if row else defaults.footer,
+            help_message=str(row[8]) if row else defaults.help_message,
+            top_limit=int(row[9]) if row else defaults.top_limit,
+            ranking_template=str(template_row[0]) if template_row else defaults.ranking_template,
+            personal_template=str(template_row[1]) if template_row else defaults.personal_template,
+            help_template=str(template_row[2]) if template_row else defaults.help_template,
+            ranking_row_template=str(template_row[3]) if template_row else defaults.ranking_row_template,
+            prize_line_template=str(template_row[4]) if template_row else defaults.prize_line_template,
+            empty_ranking_message=str(template_row[5]) if template_row else defaults.empty_ranking_message,
         )
 
     def save_chat_settings(self, settings: ChatSettings) -> None:
-        statement = self._sql(
+        settings_statement = self._sql(
             """
             INSERT INTO chat_settings (
                 chat_id, event_title, daily_title, weekly_title,
@@ -316,7 +386,7 @@ class Storage:
                 updated_at = EXCLUDED.updated_at
             """
         )
-        values = (
+        settings_values = (
             settings.chat_id,
             settings.event_title[:255],
             settings.daily_title[:255],
@@ -330,11 +400,40 @@ class Storage:
             max(3, min(50, settings.top_limit)),
             self._datetime_value(datetime.now(timezone.utc)),
         )
+        templates_statement = self._sql(
+            """
+            INSERT INTO chat_message_templates (
+                chat_id, ranking_template, personal_template, help_template,
+                ranking_row_template, prize_line_template,
+                empty_ranking_message, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (chat_id) DO UPDATE SET
+                ranking_template = EXCLUDED.ranking_template,
+                personal_template = EXCLUDED.personal_template,
+                help_template = EXCLUDED.help_template,
+                ranking_row_template = EXCLUDED.ranking_row_template,
+                prize_line_template = EXCLUDED.prize_line_template,
+                empty_ranking_message = EXCLUDED.empty_ranking_message,
+                updated_at = EXCLUDED.updated_at
+            """
+        )
+        templates_values = (
+            settings.chat_id,
+            settings.ranking_template[:6000],
+            settings.personal_template[:6000],
+            settings.help_template[:4000],
+            settings.ranking_row_template[:500],
+            settings.prize_line_template[:500],
+            settings.empty_ranking_message[:500],
+            self._datetime_value(datetime.now(timezone.utc)),
+        )
         with self.lock:
             connection = self._require_connection()
             cursor = connection.cursor()
             try:
-                cursor.execute(statement, values)
+                cursor.execute(settings_statement, settings_values)
+                cursor.execute(templates_statement, templates_values)
                 connection.commit()
             except Exception:
                 connection.rollback()

@@ -49,6 +49,10 @@ color:#fff;padding:13px 25px;font-weight:800;font-size:14px;cursor:pointer;box-s
 .notice{border:1px solid #37d67a55;background:#123321;color:#a5f4c5;padding:12px 14px;border-radius:11px;
 font-size:13px;margin-bottom:16px}.error{border-color:#ff3b4f66;background:#35131a;color:#ffb8c0}.preview{white-space:pre-wrap;
 line-height:1.65;background:#090c12;border:1px solid var(--line);border-radius:14px;padding:18px;font-size:14px}
+.template{min-height:210px;font-family:Consolas,'Courier New',monospace;line-height:1.55}.template.small{min-height:100px}
+.tokens{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 16px}.token{border:1px solid #384155;background:#171d28;
+color:#cbd4e5;border-radius:999px;padding:6px 9px;font:12px Consolas,monospace;cursor:pointer}.token:hover{border-color:var(--red)}
+.preview-title{font-size:13px;color:#ff9eaa;margin:18px 0 8px}.preview-title:first-child{margin-top:0}
 @media(max-width:680px){.grid{grid-template-columns:1fr}.prizes{grid-template-columns:1fr 1fr}.card{padding:17px}.wrap{padding-top:22px}}
 """
 
@@ -115,12 +119,29 @@ def _edit_form(group: ChatGroup, item: ChatSettings, saved: bool, error: str = "
 <div class="field"><label for="footer">순위 하단 안내문</label><textarea id="footer" name="footer" maxlength="1000">{_value(item.footer)}</textarea></div>
 <div class="field"><label for="help_message">.도움말 추가 문구</label><textarea id="help_message" name="help_message" maxlength="2000">{_value(item.help_message)}</textarea></div>
 <div class="field"><label for="top_limit">표시할 순위 인원</label><input id="top_limit" name="top_limit" type="number" min="3" max="50" value="{item.top_limit}"><small>3명부터 50명까지 설정할 수 있습니다.</small></div>
-</section><section class="card"><h2>미리보기</h2><div id="preview" class="preview"></div></section>
+</section><section class="card"><h2>봇 답변 전체 편집</h2><p class="muted">글·이모지·줄바꿈·순서를 전부 수정할 수 있습니다. <b>{{치환값}}</b>은 실제 순위와 이름으로 자동 변경됩니다. 굵은 글씨는 <b>**글씨**</b>처럼 입력하세요. 아래 치환값 버튼을 누르면 현재 커서 위치에 들어갑니다.</p>
+<div class="field"><label for="ranking_template">.채팅순위 전체 답변</label><div class="tokens" data-target="ranking_template">
+<button type="button" class="token">{{EVENT_TITLE_BOLD}}</button><button type="button" class="token">{{DAILY_TITLE_BOLD}}</button><button type="button" class="token">{{DAY_DATE}}</button><button type="button" class="token">{{DAILY_RANKING}}</button><button type="button" class="token">{{WEEKLY_TITLE_BOLD}}</button><button type="button" class="token">{{WEEK_DATE}}</button><button type="button" class="token">{{PRIZE_LINE}}</button><button type="button" class="token">{{WEEKLY_RANKING}}</button><button type="button" class="token">{{FOOTER}}</button></div>
+<textarea class="template" id="ranking_template" name="ranking_template" maxlength="6000" required>{_value(item.ranking_template)}</textarea></div>
+<div class="grid"><div class="field"><label for="ranking_row_template">순위 한 줄 모양</label><div class="tokens" data-target="ranking_row_template"><button type="button" class="token">{{MEDAL}}</button><button type="button" class="token">{{POSITION}}</button><button type="button" class="token">{{NAME_BOLD}}</button><button type="button" class="token">{{COUNT}}</button></div><textarea class="template small" id="ranking_row_template" name="ranking_row_template" maxlength="500" required>{_value(item.ranking_row_template)}</textarea></div>
+<div class="field"><label for="prize_line_template">상금 한 줄 모양</label><div class="tokens" data-target="prize_line_template"><button type="button" class="token">{{PRIZES}}</button></div><textarea class="template small" id="prize_line_template" name="prize_line_template" maxlength="500">{_value(item.prize_line_template)}</textarea></div></div>
+<div class="field"><label for="empty_ranking_message">집계된 채팅이 없을 때</label><input id="empty_ranking_message" name="empty_ranking_message" maxlength="500" required value="{_value(item.empty_ranking_message)}"></div>
+<div class="field"><label for="personal_template">.나 전체 답변</label><div class="tokens" data-target="personal_template">
+<button type="button" class="token">{{NAME_BOLD}}</button><button type="button" class="token">{{DAILY_COUNT}}</button><button type="button" class="token">{{DAILY_RANK}}</button><button type="button" class="token">{{DAILY_SUMMARY}}</button><button type="button" class="token">{{DAILY_GAP}}</button><button type="button" class="token">{{WEEKLY_COUNT}}</button><button type="button" class="token">{{WEEKLY_RANK}}</button><button type="button" class="token">{{WEEKLY_SUMMARY}}</button><button type="button" class="token">{{WEEKLY_GAP}}</button><button type="button" class="token">{{PRIZE_BOLD}}</button><button type="button" class="token">{{DAY_DATE}}</button><button type="button" class="token">{{WEEK_DATE}}</button></div>
+<textarea class="template" id="personal_template" name="personal_template" maxlength="6000" required>{_value(item.personal_template)}</textarea></div>
+<div class="field"><label for="help_template">.도움말 전체 답변</label><div class="tokens" data-target="help_template"><button type="button" class="token">{{EVENT_TITLE_BOLD}}</button><button type="button" class="token">{{HELP_MESSAGE}}</button></div><textarea class="template" id="help_template" name="help_template" maxlength="4000" required>{_value(item.help_template)}</textarea></div>
+</section><section class="card"><h2>실시간 미리보기</h2><div id="preview" class="preview"></div></section>
 <div class="actions"><button class="save" type="submit">변경사항 저장</button></div></form>
 <script>
 const q=n=>document.querySelector(`[name="${{n}}"]`);const p=document.querySelector('#preview');
+function fill(t,v){{Object.entries(v).forEach(([k,x])=>t=t.split('{{'+k+'}}').join(x));return t.replace(/\\n{{3,}}/g,'\\n\\n').trim();}}
+function row(medal,name,count){{return fill(q('ranking_row_template').value,{{MEDAL:medal,POSITION:medal==='🥇'?'1':'2',NAME:name,NAME_BOLD:name,COUNT:count}});}}
 function draw(){{const prizes=[1,2,3,4].map(n=>q('prize_'+n).value.trim()?`${{n}}위 ${{q('prize_'+n).value.trim()}}`:null).filter(Boolean).join(' · ');
-p.textContent=`🏆 ${{q('event_title').value}}\n\n☀️ ${{q('daily_title').value}} · 오늘\n🥇 기강 — 120회\n🥈 라온 — 98회\n\n📅 ${{q('weekly_title').value}} · 이번 주\n${{prizes?'🎁 '+prizes+'\\n':''}}🥇 기강 — 850회\n🥈 라온 — 790회\n\n${{q('footer').value}}`;}}
+const prizeLine=prizes?fill(q('prize_line_template').value,{{PRIZES:prizes}}):'';const rows=row('🥇','기강','850')+'\\n'+row('🥈','라온','790');
+const common={{EVENT_TITLE:q('event_title').value,EVENT_TITLE_BOLD:q('event_title').value,DAILY_TITLE:q('daily_title').value,DAILY_TITLE_BOLD:q('daily_title').value,WEEKLY_TITLE:q('weekly_title').value,WEEKLY_TITLE_BOLD:q('weekly_title').value,DAY_DATE:'8월 22일',WEEK_DATE:'8월 17일 ~ 23일',DAILY_RANKING:rows,WEEKLY_RANKING:rows,PRIZE_LINE:prizeLine,FOOTER:q('footer').value}};
+const rank=fill(q('ranking_template').value,common);const personal=fill(q('personal_template').value,{{NAME:'기강',NAME_BOLD:'기강',DAILY_COUNT:'120',DAILY_RANK:'1위',DAILY_SUMMARY:'120회 · 1위',DAILY_GAP:'현재 1위 👑',WEEKLY_COUNT:'850',WEEKLY_RANK:'1위',WEEKLY_SUMMARY:'850회 · 1위',WEEKLY_GAP:'현재 1위 👑',PRIZE:q('prize_1').value||'순위권 밖',PRIZE_BOLD:q('prize_1').value||'순위권 밖',DAY_DATE:'8월 22일',WEEK_DATE:'8월 17일 ~ 23일'}});
+const help=fill(q('help_template').value,{{EVENT_TITLE:q('event_title').value,EVENT_TITLE_BOLD:q('event_title').value,HELP_MESSAGE:q('help_message').value}});p.textContent='[.채팅순위]\\n'+rank+'\\n\\n[.나]\\n'+personal+'\\n\\n[.도움말]\\n'+help;}}
+document.querySelectorAll('.tokens').forEach(box=>box.querySelectorAll('.token').forEach(btn=>btn.addEventListener('click',()=>{{const el=document.getElementById(box.dataset.target);const a=el.selectionStart,b=el.selectionEnd;el.value=el.value.slice(0,a)+btn.textContent+el.value.slice(b);el.focus();el.setSelectionRange(a+btn.textContent.length,a+btn.textContent.length);draw();}})));
 document.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('input',draw));draw();
 </script>"""
     return _layout(content, f"{group.title} 설정")
@@ -131,6 +152,11 @@ def _field(data: dict[str, list[str]], name: str, maximum: int) -> str:
 
 
 def _settings_from_form(chat_id: int, data: dict[str, list[str]]) -> ChatSettings:
+    defaults = ChatSettings(chat_id=chat_id)
+
+    def template_value(name: str, maximum: int, default: str) -> str:
+        return _field(data, name, maximum) if name in data else default
+
     try:
         top_limit = int(_field(data, "top_limit", 2) or "10")
     except ValueError:
@@ -147,6 +173,22 @@ def _settings_from_form(chat_id: int, data: dict[str, list[str]]) -> ChatSetting
         footer=_field(data, "footer", 1000),
         help_message=_field(data, "help_message", 2000),
         top_limit=max(3, min(50, top_limit)),
+        ranking_template=template_value(
+            "ranking_template", 6000, defaults.ranking_template
+        ),
+        personal_template=template_value(
+            "personal_template", 6000, defaults.personal_template
+        ),
+        help_template=template_value("help_template", 4000, defaults.help_template),
+        ranking_row_template=template_value(
+            "ranking_row_template", 500, defaults.ranking_row_template
+        ),
+        prize_line_template=template_value(
+            "prize_line_template", 500, defaults.prize_line_template
+        ),
+        empty_ranking_message=template_value(
+            "empty_ranking_message", 500, defaults.empty_ranking_message
+        ),
     )
 
 
@@ -251,8 +293,18 @@ def create_http_server(
                 self._send(400, "잘못된 입력입니다.", "text/plain; charset=utf-8")
                 return
             item = _settings_from_form(chat_id, data)
-            if not item.event_title or not item.daily_title or not item.weekly_title:
-                self._send(422, _edit_form(group, item, False, "제목 세 칸은 비워둘 수 없습니다."))
+            required = (
+                item.event_title,
+                item.daily_title,
+                item.weekly_title,
+                item.ranking_template,
+                item.personal_template,
+                item.help_template,
+                item.ranking_row_template,
+                item.empty_ranking_message,
+            )
+            if not all(required):
+                self._send(422, _edit_form(group, item, False, "제목과 필수 답변 칸은 비워둘 수 없습니다."))
                 return
             storage.save_chat_settings(item)
             self._redirect(f"/admin/chat/{chat_id}?saved=1")

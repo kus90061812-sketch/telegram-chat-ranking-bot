@@ -1,6 +1,6 @@
 import unittest
 
-from chat_rank_bot.formatting import personal_message, ranking_message
+from chat_rank_bot.formatting import help_message, personal_message, ranking_message
 from chat_rank_bot.storage import ChatSettings, PersonalRank, RankEntry
 
 
@@ -40,7 +40,7 @@ class FormattingTests(unittest.TestCase):
             "2026-08-17",
             ChatSettings(chat_id=-100),
         )
-        self.assertIn("현재 주간 예상 상금: 순위권 밖", result)
+        self.assertIn("현재 주간 예상 상금: <b>순위권 밖</b>", result)
 
     def test_custom_web_settings_change_bot_text(self) -> None:
         settings = ChatSettings(
@@ -62,3 +62,42 @@ class FormattingTests(unittest.TestCase):
         self.assertIn("1위 20만원 · 2위 10만원 · 3위 5만원", result)
         self.assertNotIn("4위", result)
         self.assertIn("매주 월요일 발표", result)
+
+    def test_full_templates_can_be_rewritten(self) -> None:
+        settings = ChatSettings(
+            chat_id=-100,
+            ranking_template="🔥 {EVENT_TITLE}\n{WEEKLY_RANKING}\n상금: {PRIZE_LINE}",
+            ranking_row_template="{POSITION}등 / {NAME} / {COUNT}개",
+            prize_line_template="{PRIZES}",
+            personal_template="{NAME}님은 이번 주 {WEEKLY_COUNT}개, {WEEKLY_RANK}",
+            help_template="명령어 안내\n{HELP_MESSAGE}",
+        )
+        entries = [RankEntry(1, "기강", None, 321)]
+        ranking = ranking_message(entries, entries, "2026-08-22", "2026-08-17", settings)
+        personal = personal_message(
+            "기강", PersonalRank(1, 20, 20), PersonalRank(1, 321, 321),
+            "2026-08-22", "2026-08-17", settings
+        )
+        help_text = help_message(settings)
+        self.assertIn("🔥 채팅 순위", ranking)
+        self.assertIn("1등 / 기강 / 321개", ranking)
+        self.assertIn("기강님은 이번 주 321개, 1위", personal)
+        self.assertIn("명령어 안내", help_text)
+
+    def test_admin_html_is_escaped_but_dynamic_bold_is_kept(self) -> None:
+        settings = ChatSettings(
+            chat_id=-100,
+            ranking_template="<script>{EVENT_TITLE_BOLD}</script>\n{WEEKLY_RANKING}",
+        )
+        result = ranking_message(
+            [], [RankEntry(1, "<VIP>", None, 10)], "2026-08-22", "2026-08-17", settings
+        )
+        self.assertIn("&lt;script&gt;<b>채팅 순위</b>&lt;/script&gt;", result)
+        self.assertIn("<b>&lt;VIP&gt;</b>", result)
+
+    def test_admin_can_use_simple_bold_markup(self) -> None:
+        settings = ChatSettings(
+            chat_id=-100,
+            help_template="**필독**\n{HELP_MESSAGE}",
+        )
+        self.assertIn("<b>필독</b>", help_message(settings))

@@ -5,14 +5,13 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from html import escape
 
 from telegram import Update
 from telegram.constants import ChatType, ParseMode
 from telegram.ext import Application, ApplicationBuilder, ContextTypes, MessageHandler, filters
 
 from .config import Settings
-from .formatting import personal_message, ranking_message
+from .formatting import help_message, personal_message, ranking_message
 from .periods import period_keys
 from .storage import Storage
 from .text_rules import dot_command, fingerprint, is_countable_text
@@ -170,10 +169,7 @@ class RankingBot:
             return
         ui_settings = await asyncio.to_thread(self.storage.get_chat_settings, chat.id)
         await message.reply_text(
-            "💬 <b>채팅 순위 봇</b>\n\n"
-            ".채팅순위 — 오늘·이번 주 TOP 순위\n"
-            ".나 — 내 일간·주간 채팅 수와 순위\n\n"
-            f"{escape(ui_settings.help_message)}",
+            help_message(ui_settings),
             parse_mode=ParseMode.HTML,
         )
 
