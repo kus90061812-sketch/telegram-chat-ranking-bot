@@ -6,7 +6,7 @@ import os
 from contextlib import suppress
 from datetime import datetime, timezone
 
-from telegram import Update
+from telegram import LinkPreviewOptions, Update
 from telegram.constants import ChatType, ParseMode
 from telegram.error import TelegramError
 from telegram.ext import (
@@ -48,6 +48,7 @@ WEEKLY_COMMANDS = {".주간순위"}
 ME_COMMANDS = {".나"}
 HELP_COMMANDS = {".도움말"}
 PICK_PREFIX_SETTING = "pick_prefix_html"
+NO_LINK_PREVIEW = LinkPreviewOptions(is_disabled=True)
 
 
 class RankingBot:
@@ -234,6 +235,7 @@ class RankingBot:
                     chat_id=chat_id,
                     text=outgoing,
                     parse_mode=ParseMode.HTML,
+                    link_preview_options=NO_LINK_PREVIEW,
                 )
                 succeeded += 1
             except TelegramError:
@@ -296,6 +298,7 @@ class RankingBot:
         await message.reply_text(
             daily_ranking_message(entries, keys.day_key),
             parse_mode=ParseMode.HTML,
+            link_preview_options=NO_LINK_PREVIEW,
         )
 
     async def show_weekly(self, update: Update) -> None:
@@ -310,6 +313,7 @@ class RankingBot:
         await message.reply_text(
             weekly_ranking_message(entries, keys.week_key),
             parse_mode=ParseMode.HTML,
+            link_preview_options=NO_LINK_PREVIEW,
         )
 
     async def show_me(self, update: Update) -> None:
@@ -353,6 +357,7 @@ class RankingBot:
                     chat_id=chat_id,
                     text=weekly_ranking_message(entries, keys.week_key),
                     parse_mode=ParseMode.HTML,
+                    link_preview_options=NO_LINK_PREVIEW,
                 )
             except Exception:
                 LOGGER.exception(
