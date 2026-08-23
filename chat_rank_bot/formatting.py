@@ -58,7 +58,7 @@ def weekly_ranking_message(entries: list[RankEntry], week_key: str) -> str:
         f"📆 <b>주간집계</b> · {week_label(week_key)}\n\n"
         f"{_ranking_rows(entries, show_prizes=True)}\n\n"
         "<b>매주 월요일 포인트지급</b>\n"
-        "<b>주간 누적 입금 10만 원 이상 시 지급</b>\n"
+        "<b>두 사이트 중 택 1, 매주 월요일 1회 지급</b>\n"
         f"문의 : {_telegram_profile_link('TB935')} , "
         f"{_telegram_profile_link('tigertk52')}"
     )
