@@ -11,15 +11,22 @@ TOP_LIMIT = 4
 EMPTY_NAME = "집계 없음"
 
 
+def _telegram_profile_link(username: str) -> str:
+    clean_username = escape(username.lstrip("@"), quote=True)
+    return (
+        f'<a href="https://t.me/{clean_username}">'
+        f'@{clean_username}</a>'
+    )
+
+
 def _display_identity(entry: RankEntry) -> str:
     name = escape(
         entry.display_name
-        or (f"@{entry.username}" if entry.username else str(entry.user_id))
+        or (entry.username if entry.username else str(entry.user_id))
     )
     if not entry.username:
         return f"{name} (아이디 없음)"
-    username = escape(entry.username.lstrip("@"))
-    return f"{name} (@&#8203;{username})"
+    return f"{name} ({_telegram_profile_link(entry.username)})"
 
 
 def _ranking_rows(entries: list[RankEntry], *, show_prizes: bool) -> str:
@@ -51,7 +58,9 @@ def weekly_ranking_message(entries: list[RankEntry], week_key: str) -> str:
         f"📆 <b>주간집계</b> · {week_label(week_key)}\n\n"
         f"{_ranking_rows(entries, show_prizes=True)}\n\n"
         "<b>매주 월요일 포인트지급</b>\n"
-        "문의 : @&#8203;TB935 , @&#8203;tigertk52"
+        "<b>주간 누적 입금 10만 원 이상 시 지급</b>\n"
+        f"문의 : {_telegram_profile_link('TB935')} , "
+        f"{_telegram_profile_link('tigertk52')}"
     )
 
 

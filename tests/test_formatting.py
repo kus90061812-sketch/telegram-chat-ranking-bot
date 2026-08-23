@@ -17,7 +17,11 @@ class FormattingTests(unittest.TestCase):
         ]
         result = daily_ranking_message(entries, "2026-08-22")
         self.assertIn("📅 <b>일일집계</b>", result)
-        self.assertIn("1위 - 기강 &amp; 친구 (@test) [ 1,284회 ]", result)
+        self.assertIn(
+            '1위 - 기강 &amp; 친구 '
+            '(<a href="https://t.me/test">@test</a>) [ 1,284회 ]',
+            result,
+        )
         self.assertIn("2위 - 라온 (아이디 없음) [ 900회 ]", result)
         self.assertIn("3위 - 집계 없음 [ 0회 ]", result)
         self.assertIn("4위 - 집계 없음 [ 0회 ]", result)
@@ -26,12 +30,32 @@ class FormattingTests(unittest.TestCase):
         entries = [RankEntry(1, "기강", "TB935", 321)]
         result = weekly_ranking_message(entries, "2026-08-17")
         self.assertIn("📆 <b>주간집계</b>", result)
-        self.assertIn("1위 10만 - 기강 (@TB935) [ 321회 ]", result)
+        self.assertIn(
+            '1위 10만 - 기강 '
+            '(<a href="https://t.me/TB935">@TB935</a>) [ 321회 ]',
+            result,
+        )
         self.assertIn("2위 5만 - 집계 없음 [ 0회 ]", result)
         self.assertIn("3위 3만 - 집계 없음 [ 0회 ]", result)
         self.assertIn("4위 2만 - 집계 없음 [ 0회 ]", result)
         self.assertIn("매주 월요일 포인트지급", result)
-        self.assertIn("문의 : @TB935 , @tigertk52", result)
+        self.assertIn("주간 누적 입금 10만 원 이상 시 지급", result)
+        self.assertIn(
+            '문의 : <a href="https://t.me/TB935">@TB935</a> , '
+            '<a href="https://t.me/tigertk52">@tigertk52</a>',
+            result,
+        )
+
+    def test_usernames_are_regular_profile_links_not_mentions(self) -> None:
+        result = daily_ranking_message(
+            [RankEntry(1, "회원", "clickable_user", 10)],
+            "2026-08-22",
+        )
+        self.assertIn(
+            '<a href="https://t.me/clickable_user">@clickable_user</a>',
+            result,
+        )
+        self.assertNotIn("회원 (@clickable_user)", result)
 
     def test_personal_message_always_contains_daily_and_weekly_rank(self) -> None:
         result = personal_message(

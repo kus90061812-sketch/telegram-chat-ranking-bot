@@ -82,6 +82,7 @@ WEEKLY_BROADCAST_INTERVAL_HOURS=2
 4위 2만 - 닉네임 (@아이디) [ 200회 ]
 
 매주 월요일 포인트지급
+주간 누적 입금 10만 원 이상 시 지급
 문의 : @TB935 , @tigertk52
 ```
 
