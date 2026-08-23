@@ -19,7 +19,7 @@ def _display_identity(entry: RankEntry) -> str:
     if not entry.username:
         return f"{name} (아이디 없음)"
     username = escape(entry.username.lstrip("@"))
-    return f"{name} (@{username})"
+    return f"{name} (@&#8203;{username})"
 
 
 def _ranking_rows(entries: list[RankEntry], *, show_prizes: bool) -> str:
@@ -51,7 +51,7 @@ def weekly_ranking_message(entries: list[RankEntry], week_key: str) -> str:
         f"📆 <b>주간집계</b> · {week_label(week_key)}\n\n"
         f"{_ranking_rows(entries, show_prizes=True)}\n\n"
         "<b>매주 월요일 포인트지급</b>\n"
-        "문의 : @TB935 , @tigertk52"
+        "문의 : @&#8203;TB935 , @&#8203;tigertk52"
     )
 
 
