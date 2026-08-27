@@ -85,3 +85,54 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(self.storage.get_setting("pick_prefix_html"), "second")
         self.storage.delete_setting("pick_prefix_html")
         self.assertIsNone(self.storage.get_setting("pick_prefix_html"))
+
+    def test_excluded_user_is_hidden_from_rankings_and_can_be_restored(self) -> None:
+        now = datetime(2026, 8, 22, tzinfo=timezone.utc)
+        self.assertTrue(add_message(self.storage, 1, 1, now, "first"))
+        self.assertTrue(add_message(self.storage, 2, 2, now, "second"))
+
+        self.storage.exclude_user(-100, 1, "제외회원", "hidden", 99, now)
+
+        self.assertTrue(self.storage.is_user_excluded(-100, 1))
+        self.assertEqual(
+            [entry.user_id for entry in self.storage.rankings(-100, "week", "2026-08-17")],
+            [2],
+        )
+        excluded = self.storage.list_excluded_users(-100)
+        self.assertEqual(
+            [(entry.user_id, entry.display_name, entry.username) for entry in excluded],
+            [(1, "제외회원", "hidden")],
+        )
+
+        self.assertTrue(self.storage.include_user(-100, 1))
+        self.assertFalse(self.storage.include_user(-100, 1))
+        self.assertFalse(self.storage.is_user_excluded(-100, 1))
+        self.assertEqual(
+            [entry.user_id for entry in self.storage.rankings(-100, "week", "2026-08-17")],
+            [1, 2],
+        )
+
+    def test_exclusion_only_applies_to_one_group(self) -> None:
+        now = datetime(2026, 8, 22, tzinfo=timezone.utc)
+        self.assertTrue(add_message(self.storage, 1, 1, now, "group-a"))
+        self.storage.update_profile(-200, 1, "같은회원", None, now)
+        self.assertTrue(
+            self.storage.add_message(
+                chat_id=-200,
+                message_id=1,
+                user_id=1,
+                sent_at=now,
+                day_key="2026-08-22",
+                week_key="2026-08-17",
+                content_hash="group-b",
+                min_interval_seconds=3,
+                duplicate_window_seconds=60,
+            )
+        )
+        self.storage.exclude_user(-100, 1, "제외회원", None, 99, now)
+
+        self.assertEqual(self.storage.rankings(-100, "day", "2026-08-22"), [])
+        self.assertEqual(
+            [entry.user_id for entry in self.storage.rankings(-200, "day", "2026-08-22")],
+            [1],
+        )

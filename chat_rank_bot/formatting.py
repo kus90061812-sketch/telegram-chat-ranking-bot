@@ -3,7 +3,7 @@ from __future__ import annotations
 from html import escape
 
 from .periods import day_label, week_label
-from .storage import PersonalRank, RankEntry
+from .storage import ExcludedUser, PersonalRank, RankEntry
 
 
 PRIZES = {1: "10만", 2: "5만", 3: "3만", 4: "2만"}
@@ -29,9 +29,15 @@ def _display_identity(entry: RankEntry) -> str:
     return f"{name} ({_telegram_profile_link(entry.username)})"
 
 
-def _ranking_rows(entries: list[RankEntry], *, show_prizes: bool) -> str:
+def _ranking_rows(
+    entries: list[RankEntry],
+    *,
+    show_prizes: bool,
+    start_position: int = 1,
+    end_position: int = TOP_LIMIT,
+) -> str:
     rows: list[str] = []
-    for position in range(1, TOP_LIMIT + 1):
+    for position in range(start_position, end_position + 1):
         if position <= len(entries):
             entry = entries[position - 1]
             name = _display_identity(entry)
@@ -57,10 +63,49 @@ def weekly_ranking_message(entries: list[RankEntry], week_key: str) -> str:
     return (
         f"📆 <b>주간집계</b> · {week_label(week_key)}\n\n"
         f"{_ranking_rows(entries, show_prizes=True)}\n\n"
-        "<b>두 사이트 중 택 1, 매주 월요일 1회 지급</b>\n"
+        "<b>매주 월요일 포인트지급</b>\n"
+        "<b>주간 누적 입금 10만 원 이상 시 지급</b>\n"
         f"문의 : {_telegram_profile_link('TB935')} , "
         f"{_telegram_profile_link('tigertk52')}"
     )
+
+
+def finalized_weekly_ranking_message(
+    entries: list[RankEntry], week_key: str
+) -> str:
+    return (
+        f"🏆 <b>주간 확정 순위</b> · {week_label(week_key)}\n\n"
+        f"{_ranking_rows(entries, show_prizes=True)}\n\n"
+        "<b>매주 월요일 포인트지급</b>\n"
+        "<b>주간 누적 입금 10만 원 이상 시 지급</b>\n"
+        f"문의 : {_telegram_profile_link('TB935')} , "
+        f"{_telegram_profile_link('tigertk52')}"
+    )
+
+
+def admin_weekly_ranking_message(
+    entries: list[RankEntry], week_key: str, chat_title: str
+) -> str:
+    return (
+        "🔒 <b>관리자 전용 · 주간 5~10위</b>\n"
+        f"{escape(chat_title)} · {week_label(week_key)}\n\n"
+        f"{_ranking_rows(entries, show_prizes=False, start_position=5, end_position=10)}"
+    )
+
+
+def excluded_users_message(entries: list[ExcludedUser]) -> str:
+    if not entries:
+        return "🚫 <b>집계 제외 목록</b>\n\n제외된 회원이 없습니다."
+
+    rows: list[str] = []
+    for position, entry in enumerate(entries, start=1):
+        name = escape(entry.display_name or str(entry.user_id))
+        if entry.username:
+            identity = f"{name} ({_telegram_profile_link(entry.username)})"
+        else:
+            identity = f"{name} (고유번호: <code>{entry.user_id}</code>)"
+        rows.append(f"{position}. {identity}")
+    return "🚫 <b>집계 제외 목록</b>\n\n" + "\n".join(rows)
 
 
 def _rank_text(result: PersonalRank) -> str:
@@ -81,6 +126,10 @@ def help_message() -> str:
         "💬 <b>채팅 순위 명령어</b>\n\n"
         ".일일순위 — 오늘 1~4위\n"
         ".주간순위 — 이번 주 1~4위와 상금\n"
+        ".관리자순위 — 봇 개인채팅에서 관리자 전용 주간 5~10위\n"
+        ".제외 — 답장한 회원을 집계에서 제외 (관리자)\n"
+        ".제외해제 — 답장한 회원을 다시 집계 (관리자)\n"
+        ".제외목록 — 현재 제외된 회원 확인 (관리자)\n"
         ".나 — 내 일일·주간 채팅 수와 등수\n\n"
         "5글자 이상 집계 / 초성 집계 X"
     )

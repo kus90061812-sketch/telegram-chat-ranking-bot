@@ -27,6 +27,13 @@ class PersonalRank:
         return max(0, self.leader_count - self.count)
 
 
+@dataclass(frozen=True)
+class ExcludedUser:
+    user_id: int
+    display_name: str
+    username: str | None
+
+
 class Storage:
     """Chat counts stored in SQLite locally or PostgreSQL on Railway."""
 
@@ -104,6 +111,17 @@ class Storage:
                     setting_key VARCHAR(100) PRIMARY KEY,
                     setting_value TEXT NOT NULL,
                     updated_at TEXT NOT NULL
+                )
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS excluded_users (
+                    chat_id BIGINT NOT NULL,
+                    user_id BIGINT NOT NULL,
+                    display_name VARCHAR(255) NOT NULL,
+                    username VARCHAR(255),
+                    excluded_by BIGINT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (chat_id, user_id)
                 )
                 """,
                 "CREATE INDEX IF NOT EXISTS ix_events_chat_day_user "
@@ -273,6 +291,102 @@ class Storage:
             finally:
                 cursor.close()
 
+    def is_user_excluded(self, chat_id: int, user_id: int) -> bool:
+        statement = self._sql(
+            "SELECT 1 FROM excluded_users WHERE chat_id = ? AND user_id = ?"
+        )
+        with self.lock:
+            cursor = self._require_connection().cursor()
+            try:
+                cursor.execute(statement, (chat_id, user_id))
+                return cursor.fetchone() is not None
+            finally:
+                cursor.close()
+
+    def exclude_user(
+        self,
+        chat_id: int,
+        user_id: int,
+        display_name: str,
+        username: str | None,
+        excluded_by: int,
+        created_at: datetime,
+    ) -> None:
+        statement = self._sql(
+            """
+            INSERT INTO excluded_users
+                (chat_id, user_id, display_name, username, excluded_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT (chat_id, user_id) DO UPDATE SET
+                display_name = EXCLUDED.display_name,
+                username = EXCLUDED.username,
+                excluded_by = EXCLUDED.excluded_by,
+                created_at = EXCLUDED.created_at
+            """
+        )
+        values = (
+            chat_id,
+            user_id,
+            (display_name or str(user_id))[:255],
+            username[:255] if username else None,
+            excluded_by,
+            self._datetime_value(created_at),
+        )
+        with self.lock:
+            connection = self._require_connection()
+            cursor = connection.cursor()
+            try:
+                cursor.execute(statement, values)
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                cursor.close()
+
+    def include_user(self, chat_id: int, user_id: int) -> bool:
+        statement = self._sql(
+            "DELETE FROM excluded_users WHERE chat_id = ? AND user_id = ?"
+        )
+        with self.lock:
+            connection = self._require_connection()
+            cursor = connection.cursor()
+            try:
+                cursor.execute(statement, (chat_id, user_id))
+                removed = cursor.rowcount > 0
+                connection.commit()
+                return removed
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                cursor.close()
+
+    def list_excluded_users(self, chat_id: int) -> list[ExcludedUser]:
+        statement = self._sql(
+            """
+            SELECT user_id, display_name, username
+            FROM excluded_users
+            WHERE chat_id = ?
+            ORDER BY created_at ASC, user_id ASC
+            """
+        )
+        with self.lock:
+            cursor = self._require_connection().cursor()
+            try:
+                cursor.execute(statement, (chat_id,))
+                rows = cursor.fetchall()
+            finally:
+                cursor.close()
+        return [
+            ExcludedUser(
+                user_id=int(row[0]),
+                display_name=str(row[1]),
+                username=str(row[2]) if row[2] else None,
+            )
+            for row in rows
+        ]
+
     def add_message(
         self,
         *,
@@ -369,6 +483,11 @@ class Storage:
             FROM message_events AS e
             JOIN profiles AS p ON e.chat_id = p.chat_id AND e.user_id = p.user_id
             WHERE e.chat_id = ? AND e.{key_column} = ?
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM excluded_users AS x
+                  WHERE x.chat_id = e.chat_id AND x.user_id = e.user_id
+              )
             GROUP BY e.user_id, p.display_name, p.username
             ORDER BY message_count DESC, e.user_id ASC
             """
